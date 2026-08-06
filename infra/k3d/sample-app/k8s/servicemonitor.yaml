@@ -1,0 +1,26 @@
+# Requires the kube-prometheus-stack CRDs (installed by install-observability.sh).
+# Tells the in-cluster Prometheus to scrape customer-api's /metrics endpoint.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: customer-api
+  namespace: demo
+  labels:
+    # Must match the ServiceMonitorSelector configured on the
+    # kube-prometheus-stack Prometheus CR -- install-observability.sh sets
+    # `prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false`
+    # so Prometheus picks up ServiceMonitors in ANY namespace with ANY
+    # labels; this label is kept for documentation/clarity, not because it's
+    # strictly required by that setting.
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: customer-api
+  namespaceSelector:
+    matchNames:
+      - demo
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

@@ -1,0 +1,51 @@
+{
+  "scenario": "api-v2.14.3 deployment increasing worker concurrency 10 -> 40",
+  "commits": [
+    {
+      "offset_minutes": -50,
+      "sha": "a1b2c3d4",
+      "author": "j.chen",
+      "title": "Increase checkout worker pool concurrency 10 -> 40 for throughput",
+      "message": "Bumps WORKER_CONCURRENCY from 10 to 40 to reduce queue backlog during peak traffic. Load-tested against staging at 2x normal traffic.",
+      "diff_summary": "config/worker.yaml: concurrency: 10 -> 40"
+    }
+  ],
+  "merge_requests": [
+    {
+      "offset_minutes": -48,
+      "iid": 482,
+      "title": "Increase checkout worker pool concurrency",
+      "author": "j.chen",
+      "approved_by": ["m.patel"],
+      "merged": true,
+      "target_branch": "main"
+    }
+  ],
+  "pipelines": [
+    {
+      "offset_minutes": -10,
+      "pipeline_id": 91234,
+      "ref": "main",
+      "status": "success",
+      "stages": ["build", "test", "deploy"]
+    }
+  ],
+  "deployments": [
+    {
+      "offset_minutes": -5,
+      "environment": "production",
+      "deployment_tier": "production",
+      "ref": "v2.14.3",
+      "status": "success",
+      "description": "Deployed api-v2.14.3 to checkout-prod (12 pods)"
+    },
+    {
+      "offset_minutes": 26,
+      "environment": "production",
+      "deployment_tier": "production",
+      "ref": "v2.14.2",
+      "status": "success",
+      "description": "Rollback: deployed api-v2.14.2 (previous stable) to checkout-prod"
+    }
+  ]
+}

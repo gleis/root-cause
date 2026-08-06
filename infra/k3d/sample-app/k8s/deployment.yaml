@@ -1,0 +1,61 @@
+# customer-api Deployment. Memory limit is intentionally modest (256Mi) so
+# the oomkilled/ scenario (raising WORKER_CONCURRENCY, which raises held
+# memory) can push it into OOMKilled without needing an unreasonably large
+# baseline allocation first.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-api
+  namespace: demo
+  labels:
+    app: customer-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: customer-api
+  template:
+    metadata:
+      labels:
+        app: customer-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: customer-api
+          image: customer-api:demo
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: customer-api-config
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: scratch
+              mountPath: /scratch
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+      volumes:
+        - name: scratch
+          emptyDir:
+            sizeLimit: 100Mi

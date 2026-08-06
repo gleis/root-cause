@@ -1,0 +1,25 @@
+{
+  "scenario": "12 pods OOMKilled in checkout-prod namespace",
+  "namespace": "checkout-prod",
+  "pod_events": [
+    {"offset_minutes": 13, "pod": "checkout-api-7d9f8c-x2n1l", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 13, "pod": "checkout-api-7d9f8c-b7k2p", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 14, "pod": "checkout-api-7d9f8c-q1m4t", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 16, "pod": "checkout-api-7d9f8c-z9d3f", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 18, "pod": "checkout-api-7d9f8c-h4j7w", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 19, "pod": "checkout-api-7d9f8c-k2l9m", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 20, "pod": "checkout-api-7d9f8c-p3n8r", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 21, "pod": "checkout-api-7d9f8c-w5t2x", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 22, "pod": "checkout-api-7d9f8c-c8v1y", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 23, "pod": "checkout-api-7d9f8c-n6b4z", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 24, "pod": "checkout-api-7d9f8c-r9f2a", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"},
+    {"offset_minutes": 25, "pod": "checkout-api-7d9f8c-t1g6s", "reason": "OOMKilled", "exit_code": 137, "memory_limit": "2Gi"}
+  ],
+  "node_conditions": [
+    {"offset_minutes": 14, "node": "node-pool-b-4", "condition": "MemoryPressure", "status": "True"},
+    {"offset_minutes": 32, "node": "node-pool-b-4", "condition": "MemoryPressure", "status": "False"}
+  ],
+  "restarts": [
+    {"offset_minutes": 30, "deployment": "checkout-api", "reason": "RollbackToStable", "replicas": 12}
+  ]
+}

@@ -1,0 +1,18 @@
+# Baseline config for customer-api. Individual scenarios patch these values
+# (via `kubectl set env deployment/customer-api ...` or `kubectl patch`) and
+# revert them in their resolve.sh -- this ConfigMap defines the healthy
+# steady state the demo starts from and returns to.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: customer-api-config
+  namespace: demo
+data:
+  WORKER_CONCURRENCY: "10"
+  MEM_PER_WORKER_MB: "4"
+  BASE_MEM_MB: "20"
+  ERROR_RATE_PCT: "0"
+  LATENCY_MS: "20"
+  CACHE_ENABLED: "true"
+  DISK_SCRATCH_DIR: "/scratch"
+  DOWNSTREAM_DB_HOST: "postgres-demo"

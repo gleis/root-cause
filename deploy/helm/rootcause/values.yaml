@@ -1,0 +1,105 @@
+# Default values for rootcause. This chart is deliberately generic/
+# cloud-agnostic -- see docs/deployment.md for self-managed vs managed k8s
+# notes. Nothing here assumes a specific cloud provider's LoadBalancer/
+# StorageClass/IngressClass annotations; add those in your own values
+# override file for your target cluster.
+
+image:
+  repository: ghcr.io/example/rootcause-backend
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount:
+  api: 2
+  worker: 2
+
+api:
+  port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+worker:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  # Passed to `celery -A app.celery_app worker --loglevel=info --concurrency=<n>`
+  concurrency: 4
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  host: rootcause.example.com
+  tls:
+    enabled: false
+    secretName: rootcause-tls
+
+# Non-secret application config, rendered into a ConfigMap and consumed via
+# envFrom by both the api and worker Deployments.
+config:
+  demoMode: "false"
+  redisUrl: "redis://redis:6379/0"
+  ollamaBaseUrl: "http://ollama:11434"
+  prometheusUrl: "http://prometheus:9090"
+  lokiUrl: "http://loki:3100"
+  gitlabUrl: "https://gitlab.com"
+  k8sNamespace: "production"
+  oidcIssuerUrl: ""
+  oidcAudience: "rootcause-api"
+  oidcRolesClaim: "roles"
+  authAllowAnonymousInDemo: "false"
+  vaultAddr: ""
+  vaultKvMount: "secret"
+  vaultKvPath: "rootcause"
+  vaultDatabaseMount: "database"
+  vaultDatabaseRole: "rootcause-app"
+  evidenceRetentionDays: "90"
+
+# Secrets. This chart does NOT let you hardcode secret values in values.yaml
+# -- pick ONE of the two mechanisms below:
+#
+#   1. externalSecrets.enabled=true: renders an External Secrets Operator
+#      `ExternalSecret` resource that pulls from Vault (or any other ESO
+#      backend) into a native k8s Secret named `secretName`, kept in sync.
+#      Requires ESO installed in-cluster and a configured SecretStore/
+#      ClusterSecretStore (see docs/vault-setup.md + docs/deployment.md).
+#
+#   2. externalSecrets.enabled=false: you provide a pre-existing plain k8s
+#      Secret (created out-of-band, e.g. `kubectl create secret generic
+#      rootcause-secrets --from-literal=...` or sealed-secrets/SOPS) with
+#      the same key names under `secretName`. The chart never generates or
+#      stores secret material itself either way.
+externalSecrets:
+  enabled: false
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  refreshInterval: 1h
+
+secretName: rootcause-secrets
+# Expected keys inside `secretName` (from Vault KV or your own Secret):
+#   database-url, gitlab-token, slack-bot-token, slack-signing-secret,
+#   vault-token (or vault-role-id/vault-secret-id), oidc-audience (if
+#   sensitive in your setup -- usually not, kept here for completeness)
+
+migrations:
+  # Runs `alembic upgrade head` as a Helm pre-install/pre-upgrade hook Job
+  # before the api/worker Deployments roll out.
+  enabled: true
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

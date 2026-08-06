@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Root Cause Investigator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #171f30;
+    --panel-2: #1e2740;
+    --border: #2a3450;
+    --text: #e6ebf5;
+    --muted: #93a0b8;
+    --accent: #4f8cff;
+    --good: #35c47f;
+    --warn: #f5b93d;
+    --bad: #f0546a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  input, select, button {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button:hover { filter: brightness(1.1); }
+  main { padding: 20px 24px; max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+  .stat-label { color: var(--muted); font-size: 12px; }
+  .stat-value { font-size: 15px; font-weight: 600; margin-top: 2px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .badge.sev1, .badge.sev2 { background: rgba(240,84,106,.15); color: var(--bad); }
+  .badge.sev3, .badge.sev4 { background: rgba(245,185,61,.15); color: var(--warn); }
+  .badge.status-investigating, .badge.status-analyzing { background: rgba(245,185,61,.15); color: var(--warn); }
+  .badge.status-resolved { background: rgba(53,196,127,.15); color: var(--good); }
+  .timeline { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--border); }
+  .timeline li { position: relative; padding: 8px 0 8px 18px; font-size: 13px; }
+  .timeline li::before { content: ""; position: absolute; left: -6px; top: 14px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .timeline .ts { color: var(--muted); font-size: 11px; }
+  .timeline .src { color: var(--accent); font-weight: 600; margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  .hyp { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; background: var(--panel-2); }
+  .hyp .statement { font-weight: 600; margin-bottom: 6px; }
+  .conf-bar-track { background: #0c1120; border-radius: 6px; height: 10px; overflow: hidden; margin: 6px 0; }
+  .conf-bar-fill { height: 100%; background: linear-gradient(90deg, var(--warn), var(--good)); }
+  .ev-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .ev-tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+  .ev-tag.support { background: rgba(53,196,127,.15); color: var(--good); }
+  .ev-tag.contradict { background: rgba(240,84,106,.15); color: var(--bad); }
+  .muted { color: var(--muted); }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>AI Root Cause Investigator</h1>
+    <div class="sub">Local-LLM-powered SRE incident investigation (MVP)</div>
+  </div>
+  <div class="controls">
+    <input id="apiBase" value="http://localhost:8000" style="width:220px" title="Backend API base URL">
+    <input id="incidentId" placeholder="incident_id" style="width:260px">
+    <button class="primary" onclick="loadAll()">Load</button>
+    <select id="sourceFilter" onchange="renderEvidence()">
+      <option value="">All sources</option>
+      <option value="metrics">metrics</option>
+      <option value="logs">logs</option>
+      <option value="gitlab">gitlab</option>
+      <option value="kubernetes">kubernetes</option>
+      <option value="dependency">dependency</option>
+      <option value="engineer_note">engineer_note</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Incident Overview</h2>
+    <div id="overview" class="overview-grid"><div class="empty">No incident loaded. Enter an incident_id above (from run_demo.py output or POST /api/v1/incidents) and click Load.</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Timeline</h2>
+    <ul id="timeline" class="timeline"><li class="empty">-</li></ul>
+  </div>
+
+  <div class="card">
+    <h2>Evidence</h2>
+    <table id="evidenceTable">
+      <thead><tr><th>Time</th><th>Source</th><th>Type</th><th>Summary</th><th>Relevance</th></tr></thead>
+      <tbody><tr><td colspan="5" class="empty">-</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Hypotheses</h2>
+    <div id="hypotheses"><div class="empty">-</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Postmortem (draft)</h2>
+    <pre id="postmortem" class="muted" style="white-space: pre-wrap; font-size: 12.5px;">-</pre>
+  </div>
+</main>
+
+<script>
+let evidenceCache = [];
+
+function apiBase() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
+function incidentId() { return document.getElementById('incidentId').value.trim(); }
+
+async function getJSON(path) {
+  const resp = await fetch(apiBase() + path);
+  if (!resp.ok) throw new Error(`${path} -> HTTP ${resp.status}`);
+  return resp.json();
+}
+
+async function loadAll() {
+  const id = incidentId();
+  if (!id) { alert('Enter an incident_id first.'); return; }
+  try {
+    const incident = await getJSON(`/api/v1/incidents/${id}`);
+    let hypotheses = [];
+    try { hypotheses = await getJSON(`/api/v1/incidents/${id}/hypotheses`); } catch (e) {}
+    let timeline = { entries: [] };
+    try { timeline = await getJSON(`/api/v1/incidents/${id}/timeline`); } catch (e) {}
+    try { evidenceCache = await getJSON(`/api/v1/incidents/${id}/evidence`); } catch (e) { evidenceCache = []; }
+    let postmortem = null;
+    try { postmortem = await getJSON(`/api/v1/incidents/${id}/postmortem`); } catch (e) {}
+
+    renderOverview(incident, hypotheses);
+    renderTimeline(timeline.entries || []);
+    renderEvidence();
+    renderHypotheses(hypotheses);
+    document.getElementById('postmortem').textContent = postmortem ? postmortem.markdown : '(not yet generated -- investigation may still be running, click Load again shortly)';
+  } catch (err) {
+    alert('Failed to load incident: ' + err.message);
+  }
+}
+
+function renderOverview(incident, hypotheses) {
+  const top = (hypotheses && hypotheses.length) ? hypotheses[0] : null;
+  const el = document.getElementById('overview');
+  el.innerHTML = `
+    <div><div class="stat-label">Title</div><div class="stat-value">${escapeHtml(incident.title)}</div></div>
+    <div><div class="stat-label">Severity</div><div class="stat-value"><span class="badge ${incident.severity}">${incident.severity}</span></div></div>
+    <div><div class="stat-label">Status</div><div class="stat-value"><span class="badge status-${incident.status}">${incident.status}</span></div></div>
+    <div><div class="stat-label">Service / Env</div><div class="stat-value">${escapeHtml(incident.service)} / ${escapeHtml(incident.environment)}</div></div>
+    <div><div class="stat-label">Started</div><div class="stat-value">${new Date(incident.started_at).toLocaleString()}</div></div>
+    <div><div class="stat-label">Most Likely Cause</div><div class="stat-value">${top ? escapeHtml(top.statement) : 'n/a'}</div></div>
+    <div><div class="stat-label">Confidence</div><div class="stat-value">${top ? (top.confidence*100).toFixed(0) + '%' : 'n/a'}</div></div>
+  `;
+}
+
+function renderTimeline(entries) {
+  const el = document.getElementById('timeline');
+  if (!entries.length) { el.innerHTML = '<li class="empty">No timeline events yet.</li>'; return; }
+  el.innerHTML = entries.map(e => `
+    <li>
+      <div class="ts">${new Date(e.timestamp).toLocaleString()}</div>
+      <span class="src">[${escapeHtml(e.source)}/${escapeHtml(e.type)}]</span>${escapeHtml(e.summary)}
+    </li>
+  `).join('');
+}
+
+function renderEvidence() {
+  const filter = document.getElementById('sourceFilter').value;
+  const rows = evidenceCache.filter(e => !filter || e.source === filter);
+  const tbody = document.querySelector('#evidenceTable tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No evidence.</td></tr>'; return; }
+  tbody.innerHTML = rows.map(e => `
+    <tr>
+      <td>${new Date(e.timestamp).toLocaleString()}</td>
+      <td>${escapeHtml(e.source)}</td>
+      <td>${escapeHtml(e.type)}</td>
+      <td>${escapeHtml(e.summary)}</td>
+      <td>${(e.relevance_score*100).toFixed(0)}%</td>
+    </tr>
+  `).join('');
+}
+
+function renderHypotheses(hypotheses) {
+  const el = document.getElementById('hypotheses');
+  if (!hypotheses.length) { el.innerHTML = '<div class="empty">No hypotheses generated yet.</div>'; return; }
+  el.innerHTML = hypotheses.map(h => `
+    <div class="hyp">
+      <div class="statement">${escapeHtml(h.statement)}</div>
+      <div class="conf-bar-track"><div class="conf-bar-fill" style="width:${(h.confidence*100).toFixed(0)}%"></div></div>
+      <div class="muted">Confidence: ${(h.confidence*100).toFixed(0)}% &middot; Status: ${escapeHtml(h.status)}</div>
+      <div class="muted" style="margin-top:6px;">${escapeHtml(h.rationale || '')}</div>
+      <div class="ev-tags">
+        ${(h.supporting_evidence||[]).map(id => `<span class="ev-tag support">supports: ${escapeHtml(id.slice(0,8))}</span>`).join('')}
+        ${(h.contradicting_evidence||[]).map(id => `<span class="ev-tag contradict">contradicts: ${escapeHtml(id.slice(0,8))}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

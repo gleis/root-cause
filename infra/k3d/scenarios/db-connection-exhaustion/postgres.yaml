@@ -1,0 +1,58 @@
+# Minimal Postgres for the db-connection-exhaustion scenario, with a
+# deliberately tiny max_connections. Not persistent (emptyDir) -- this is a
+# throwaway demo DB, never used for anything but exhausting connections.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-demo
+  namespace: demo
+  labels:
+    app: postgres-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-demo
+  template:
+    metadata:
+      labels:
+        app: postgres-demo
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          args: ["-c", "max_connections=15", "-c", "superuser_reserved_connections=2"]
+          env:
+            - name: POSTGRES_USER
+              value: demo
+            - name: POSTGRES_PASSWORD
+              value: demo
+            - name: POSTGRES_DB
+              value: demo
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "demo"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-demo
+  namespace: demo
+spec:
+  selector:
+    app: postgres-demo
+  ports:
+    - port: 5432
+      targetPort: 5432

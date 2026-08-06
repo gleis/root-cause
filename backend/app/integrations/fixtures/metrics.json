@@ -1,0 +1,51 @@
+{
+  "scenario": "api-v2.14.3 worker concurrency increase -> memory pressure -> OOMKilled",
+  "baseline_window": {
+    "start_offset_minutes": -120,
+    "end_offset_minutes": -60,
+    "memory_utilization_pct": 62,
+    "cpu_utilization_pct": 41,
+    "error_rate_pct": 0.2,
+    "p99_latency_ms": 180
+  },
+  "baseline_windows": {
+    "previous_hour": {
+      "memory_utilization_pct": 63,
+      "cpu_utilization_pct": 42,
+      "error_rate_pct": 0.2,
+      "p99_latency_ms": 178
+    },
+    "previous_day": {
+      "memory_utilization_pct": 60,
+      "cpu_utilization_pct": 39,
+      "error_rate_pct": 0.3,
+      "p99_latency_ms": 185
+    },
+    "previous_week": {
+      "memory_utilization_pct": 58,
+      "cpu_utilization_pct": 40,
+      "error_rate_pct": 0.2,
+      "p99_latency_ms": 172
+    }
+  },
+  "series": [
+    {"offset_minutes": -70, "memory_utilization_pct": 63, "cpu_utilization_pct": 42, "error_rate_pct": 0.2, "p99_latency_ms": 175},
+    {"offset_minutes": -40, "memory_utilization_pct": 64, "cpu_utilization_pct": 43, "error_rate_pct": 0.3, "p99_latency_ms": 182},
+    {"offset_minutes": -20, "memory_utilization_pct": 65, "cpu_utilization_pct": 44, "error_rate_pct": 0.2, "p99_latency_ms": 178},
+    {"offset_minutes": -5, "memory_utilization_pct": 67, "cpu_utilization_pct": 45, "error_rate_pct": 0.3, "p99_latency_ms": 190,
+     "note": "deployment api-v2.14.3 begins rollout ~here"},
+    {"offset_minutes": 0, "memory_utilization_pct": 74, "cpu_utilization_pct": 52, "error_rate_pct": 0.4, "p99_latency_ms": 210},
+    {"offset_minutes": 5, "memory_utilization_pct": 83, "cpu_utilization_pct": 61, "error_rate_pct": 1.8, "p99_latency_ms": 340},
+    {"offset_minutes": 10, "memory_utilization_pct": 91, "cpu_utilization_pct": 68, "error_rate_pct": 6.4, "p99_latency_ms": 610},
+    {"offset_minutes": 14, "memory_utilization_pct": 98, "cpu_utilization_pct": 74, "error_rate_pct": 18.9, "p99_latency_ms": 1450,
+     "note": "memory saturation, OOMKilled events begin"},
+    {"offset_minutes": 18, "memory_utilization_pct": 97, "cpu_utilization_pct": 70, "error_rate_pct": 22.3, "p99_latency_ms": 1610},
+    {"offset_minutes": 22, "memory_utilization_pct": 95, "cpu_utilization_pct": 66, "error_rate_pct": 19.5, "p99_latency_ms": 1520},
+    {"offset_minutes": 26, "memory_utilization_pct": 96, "cpu_utilization_pct": 69, "error_rate_pct": 21.0, "p99_latency_ms": 1580,
+     "note": "rollback to api-v2.14.2 triggered"},
+    {"offset_minutes": 30, "memory_utilization_pct": 78, "cpu_utilization_pct": 55, "error_rate_pct": 4.1, "p99_latency_ms": 420},
+    {"offset_minutes": 34, "memory_utilization_pct": 65, "cpu_utilization_pct": 44, "error_rate_pct": 0.5, "p99_latency_ms": 195,
+     "note": "recovery"},
+    {"offset_minutes": 40, "memory_utilization_pct": 63, "cpu_utilization_pct": 42, "error_rate_pct": 0.2, "p99_latency_ms": 180}
+  ]
+}

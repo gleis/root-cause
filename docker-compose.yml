@@ -1,0 +1,162 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rootcause
+      POSTGRES_PASSWORD: rootcause
+      POSTGRES_DB: rootcause
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rootcause"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://rootcause:rootcause@postgres:5432/rootcause
+      REDIS_URL: redis://redis:6379/0
+      DEMO_MODE: "true"
+      # Ollama runs on the HOST, not in this compose file (see notes below),
+      # so from inside the backend container it's reached via the docker
+      # host gateway rather than localhost.
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL_SUMMARY: qwen2.5
+      OLLAMA_MODEL_REDACTION: qwen2.5
+      OLLAMA_MODEL_CLASSIFICATION: qwen2.5
+      OLLAMA_MODEL_HYPOTHESIS: qwen2.5
+      OLLAMA_MODEL_POSTMORTEM: qwen2.5
+      GITLAB_URL: https://gitlab.com
+      GITLAB_TOKEN: changeme
+      GITLAB_PROJECT_ID: changeme
+      PROMETHEUS_URL: http://prometheus:9090
+      LOKI_URL: http://loki:3100
+      SLACK_BOT_TOKEN: xoxb-changeme
+      SLACK_CHANNEL: "#incidents"
+    volumes:
+      - ./backend:/app
+      - ./frontend:/frontend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      # Lets the backend container reach an Ollama instance running on the
+      # host machine at http://host.docker.internal:11434 (works on Docker
+      # Desktop for Mac/Windows; on native Linux add the host IP explicitly
+      # or run Ollama as a sibling container -- see notes below).
+      - "host.docker.internal:host-gateway"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # -------------------------------------------------------------------------
+  # Celery worker: runs the investigation pipeline as a durable task (see
+  # app/celery_app.py, app/tasks.py) instead of an in-process asyncio
+  # background task, so an investigation survives an API process restart.
+  # POST /api/v1/incidents and the Alertmanager webhook `.delay()` a task
+  # here; if this worker (or Redis) isn't reachable they fall back to
+  # running in-process instead of failing the request -- see
+  # dispatch_investigation() in app/main.py.
+  # -------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://rootcause:rootcause@postgres:5432/rootcause
+      REDIS_URL: redis://redis:6379/0
+      DEMO_MODE: "true"
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL_SUMMARY: qwen2.5
+      OLLAMA_MODEL_REDACTION: qwen2.5
+      OLLAMA_MODEL_CLASSIFICATION: qwen2.5
+      OLLAMA_MODEL_HYPOTHESIS: qwen2.5
+      OLLAMA_MODEL_POSTMORTEM: qwen2.5
+      GITLAB_URL: https://gitlab.com
+      GITLAB_TOKEN: changeme
+      GITLAB_PROJECT_ID: changeme
+      PROMETHEUS_URL: http://prometheus:9090
+      LOKI_URL: http://loki:3100
+      SLACK_BOT_TOKEN: xoxb-changeme
+      SLACK_CHANNEL: "#incidents"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: celery -A app.celery_app worker --loglevel=info
+
+  # -------------------------------------------------------------------------
+  # Runs `alembic upgrade head` once and exits. In docker-compose this is a
+  # plain one-shot service you run with `docker-compose run --rm migrate`;
+  # the Helm chart (deploy/helm/rootcause/) runs the equivalent as a
+  # pre-install/pre-upgrade hook Job.
+  # -------------------------------------------------------------------------
+  migrate:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://rootcause:rootcause@postgres:5432/rootcause
+      DEMO_MODE: "false"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: alembic upgrade head
+
+  # -------------------------------------------------------------------------
+  # Ollama (LOCAL LLM ONLY -- no hosted/cloud LLM is ever used by this app).
+  #
+  # For the MVP, the simplest and most portable setup is to run Ollama
+  # directly on the host machine (`ollama serve`, then `ollama pull qwen2.5`)
+  # rather than in Docker, since GPU passthrough for containerized Ollama
+  # varies a lot by platform. The `backend` service is already wired to
+  # reach it at http://host.docker.internal:11434.
+  #
+  # If you'd rather run Ollama as a container too, uncomment the service
+  # below and change OLLAMA_BASE_URL above to http://ollama:11434. For GPU
+  # acceleration in Docker you additionally need the NVIDIA Container
+  # Toolkit installed on the host and a `deploy.resources.reservations.devices`
+  # block requesting `driver: nvidia`, `capabilities: [gpu]` (see Ollama's
+  # official docker-compose examples for the exact syntax on your platform).
+  #
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: all
+  #   #           capabilities: [gpu]
+
+volumes:
+  postgres_data:
+  # ollama_data:

@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rootcause.fullname" . }}-api
+  labels:
+    {{- include "rootcause.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.replicaCount.api }}
+  selector:
+    matchLabels:
+      {{- include "rootcause.labels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "rootcause.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: {{ include "rootcause.serviceAccountName" . }}
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "{{ .Values.api.port }}"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "rootcause.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.secretName }}
+          env:
+            # envFrom above sets DATABASE_URL/GITLAB_TOKEN/etc from generic
+            # key names; if your Secret uses the ExternalSecret's dashed
+            # key names (database-url, not DATABASE_URL) instead, map them
+            # explicitly here rather than relying on envFrom, e.g.:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: database-url
+            - name: GITLAB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: gitlab-token
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: slack-bot-token
+            - name: SLACK_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: slack-signing-secret
+          readinessProbe:
+            # No dedicated /healthz endpoint exists yet (documented TODO in
+            # README's Production Readiness section) -- "/" is served by
+            # StaticFiles (see app/main.py) and returns 200 once the ASGI
+            # app has started, which is enough to prove the process is up
+            # and serving, though NOT that the DB is reachable.
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}

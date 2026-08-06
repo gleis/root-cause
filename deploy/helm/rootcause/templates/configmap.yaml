@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rootcause.fullname" . }}-config
+  labels:
+    {{- include "rootcause.labels" . | nindent 4 }}
+data:
+  DEMO_MODE: {{ .Values.config.demoMode | quote }}
+  REDIS_URL: {{ .Values.config.redisUrl | quote }}
+  OLLAMA_BASE_URL: {{ .Values.config.ollamaBaseUrl | quote }}
+  PROMETHEUS_URL: {{ .Values.config.prometheusUrl | quote }}
+  LOKI_URL: {{ .Values.config.lokiUrl | quote }}
+  GITLAB_URL: {{ .Values.config.gitlabUrl | quote }}
+  K8S_NAMESPACE: {{ .Values.config.k8sNamespace | quote }}
+  OIDC_ISSUER_URL: {{ .Values.config.oidcIssuerUrl | quote }}
+  OIDC_AUDIENCE: {{ .Values.config.oidcAudience | quote }}
+  OIDC_ROLES_CLAIM: {{ .Values.config.oidcRolesClaim | quote }}
+  AUTH_ALLOW_ANONYMOUS_IN_DEMO: {{ .Values.config.authAllowAnonymousInDemo | quote }}
+  VAULT_ADDR: {{ .Values.config.vaultAddr | quote }}
+  VAULT_KV_MOUNT: {{ .Values.config.vaultKvMount | quote }}
+  VAULT_KV_PATH: {{ .Values.config.vaultKvPath | quote }}
+  VAULT_DATABASE_MOUNT: {{ .Values.config.vaultDatabaseMount | quote }}
+  VAULT_DATABASE_ROLE: {{ .Values.config.vaultDatabaseRole | quote }}
+  EVIDENCE_RETENTION_DAYS: {{ .Values.config.evidenceRetentionDays | quote }}

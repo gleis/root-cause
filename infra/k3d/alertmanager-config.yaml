@@ -1,0 +1,35 @@
+# Alertmanager config, installed as a Secret by install-observability.sh
+# (kube-prometheus-stack's `alertmanager.alertmanagerSpec.configSecret`).
+#
+# Routes every firing alert to the AI Root Cause Investigator's webhook
+# endpoint: POST /api/v1/alerts/webhook (see backend/app/main.py /
+# backend/app/routers/alerts.py).
+#
+# WEBHOOK URL: this defaults to `host.k3d.internal`, the DNS name k3d
+# automatically injects into cluster pods/CoreDNS that resolves to your
+# Mac's host IP -- this is what lets Alertmanager (running inside the
+# cluster) reach the FastAPI backend (running outside the cluster, e.g.
+# `uvicorn app.main:app` directly on your Mac) without you needing to
+# containerize the backend for the demo.
+#
+# If you instead run the backend AS AN IN-CLUSTER DEPLOYMENT, change the
+# url below to the in-cluster service DNS name, e.g.
+#   http://rootcause-backend.default:8000/api/v1/alerts/webhook
+# and re-apply this secret + `kubectl rollout restart` the alertmanager
+# statefulset (see install-observability.sh's `kubectl create secret ...`
+# step, or just re-run it).
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: rootcause-webhook
+  group_by: ["alertname", "service"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: rootcause-webhook
+    webhook_configs:
+      - url: "http://host.k3d.internal:8000/api/v1/alerts/webhook"
+        send_resolved: false

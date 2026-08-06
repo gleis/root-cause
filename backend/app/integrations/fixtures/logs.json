@@ -1,0 +1,26 @@
+{
+  "scenario": "api-v2.14.3 OOMKilled log clusters",
+  "entries": [
+    {"offset_minutes": -5, "level": "info", "message": "Starting rollout of api-v2.14.3 to namespace checkout-prod (12 pods)"},
+    {"offset_minutes": 4, "level": "warn", "message": "worker pool concurrency=40 (previous=10), memory headroom reduced"},
+    {"offset_minutes": 9, "level": "error", "message": "pod checkout-api-7d9f8c-x2n1l: memory cgroup limit approaching (91% of 2Gi)"},
+    {"offset_minutes": 13, "level": "error", "message": "pod checkout-api-7d9f8c-x2n1l killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 13, "level": "error", "message": "pod checkout-api-7d9f8c-b7k2p killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 14, "level": "error", "message": "pod checkout-api-7d9f8c-q1m4t killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 15, "level": "error", "message": "connection pool exhausted: 0 available connections to postgres primary (max=20)"},
+    {"offset_minutes": 15, "level": "error", "message": "traceback: java.lang.OutOfMemoryError: Java heap space at com.checkout.WorkerPool.spawn(WorkerPool.java:88)"},
+    {"offset_minutes": 16, "level": "error", "message": "pod checkout-api-7d9f8c-z9d3f killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 17, "level": "error", "message": "upstream request timeout: payment-gateway did not respond within 5000ms"},
+    {"offset_minutes": 18, "level": "error", "message": "pod checkout-api-7d9f8c-h4j7w killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 19, "level": "error", "message": "pod checkout-api-7d9f8c-k2l9m killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 20, "level": "error", "message": "pod checkout-api-7d9f8c-p3n8r killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 21, "level": "error", "message": "pod checkout-api-7d9f8c-w5t2x killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 22, "level": "error", "message": "pod checkout-api-7d9f8c-c8v1y killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 23, "level": "error", "message": "pod checkout-api-7d9f8c-n6b4z killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 24, "level": "error", "message": "pod checkout-api-7d9f8c-r9f2a killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 25, "level": "error", "message": "pod checkout-api-7d9f8c-t1g6s killed: OOMKilled (exit code 137)"},
+    {"offset_minutes": 26, "level": "info", "message": "on-call engineer initiated rollback to api-v2.14.2"},
+    {"offset_minutes": 30, "level": "info", "message": "rollback complete, 12/12 pods healthy on api-v2.14.2"},
+    {"offset_minutes": 34, "level": "info", "message": "error rate returned to baseline (0.5%)"}
+  ]
+}

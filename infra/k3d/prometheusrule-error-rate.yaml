@@ -1,0 +1,52 @@
+# Sample PrometheusRule implementing the spec's canonical example alert:
+# "error rate > 10%". Fires when customer-api's 5xx rate over a 5-minute
+# window exceeds 10% for 2 minutes straight. Requires the
+# kube-prometheus-stack CRDs + install-observability.sh's
+# ruleSelectorNilUsesHelmValues=false (so this is picked up regardless of
+# namespace/labels) and the customer-api ServiceMonitor
+# (infra/k3d/sample-app/k8s/servicemonitor.yaml) so http_requests_total
+# actually exists in Prometheus.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: customer-api-error-rate
+  namespace: demo
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: customer-api.rules
+      rules:
+        - alert: CustomerApiHighErrorRate
+          expr: |
+            (
+              sum(rate(http_requests_total{path="/work", status="500"}[5m]))
+              /
+              sum(rate(http_requests_total{path="/work"}[5m]))
+            ) * 100 > 10
+          for: 2m
+          labels:
+            severity: critical
+            service: customer-api
+            environment: production
+          annotations:
+            summary: "customer-api error rate above 10%"
+            description: >-
+              customer-api 5xx rate over the last 5 minutes has exceeded 10%
+              for at least 2 minutes. This is the spec's canonical example
+              alert -- see infra/k3d/scenarios/oomkilled/ for a scenario
+              that reliably triggers it.
+
+        - alert: CustomerApiOOMKilled
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="demo", container="customer-api"}[10m]) > 0
+            and
+            kube_pod_container_status_last_terminated_reason{namespace="demo", container="customer-api", reason="OOMKilled"} == 1
+          for: 0m
+          labels:
+            severity: critical
+            service: customer-api
+            environment: production
+          annotations:
+            summary: "customer-api pod OOMKilled"
+            description: "A customer-api container was OOMKilled in the last 10 minutes."

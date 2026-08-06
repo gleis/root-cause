@@ -1,0 +1,43 @@
+# Slack App Manifest for AI Root Cause Investigator.
+#
+# This defines the `/investigate` slash command and the `chat:write` scope
+# the bot needs to post investigation results back to a channel. It does
+# NOT include OAuth setup -- that has to happen interactively in your own
+# Slack workspace (see infra/slack/README.md for the click-through steps).
+#
+# Usage: https://api.slack.com/apps -> "Create New App" -> "From an app manifest"
+# -> paste this file's contents (or select your workspace and upload it).
+display_information:
+  name: AI Root Cause Investigator
+  description: Kicks off an automated incident investigation and posts results back to the channel.
+  background_color: "#1a1a2e"
+
+features:
+  bot_user:
+    display_name: rootcause-bot
+    always_online: true
+  slash_commands:
+    - command: /investigate
+      description: Start an AI root-cause investigation for a service
+      usage_hint: "[service-name]"
+      # Must be a publicly reachable HTTPS URL pointing at your running
+      # backend's /api/v1/slack/investigate endpoint. For local dev, use a
+      # tunnel (e.g. `ngrok http 8000`) and paste the https URL here; Slack
+      # will not deliver slash commands to http://localhost.
+      url: https://YOUR_PUBLIC_URL/api/v1/slack/investigate
+      should_escape: false
+
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - chat:write.public
+
+settings:
+  event_subscriptions: {}
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

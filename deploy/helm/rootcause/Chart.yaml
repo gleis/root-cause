@@ -1,0 +1,6 @@
+apiVersion: v2
+name: rootcause
+description: AI Root Cause Investigator -- SRE incident investigation tool (API + Celery worker + migrations)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
