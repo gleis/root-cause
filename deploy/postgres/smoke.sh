@@ -17,7 +17,7 @@ docker volume create "$volume" >/dev/null
 start() {
   docker run -d --name "$name" -e POSTGRES_PASSWORD=smoke -e POSTGRES_USER=demo -e POSTGRES_DB=demo -e PGDATA=/var/lib/postgresql/data/pgdata -v "$volume:/var/lib/postgresql/data" "$image" -c max_connections=15 >/dev/null
   for _ in $(seq 1 60); do
-    if docker exec "$name" pg_isready -U demo >/dev/null 2>&1; then return; fi
+    if docker exec "$name" pg_isready -h 127.0.0.1 -U demo -d demo >/dev/null 2>&1; then return; fi
     sleep 1
   done
   docker logs "$name"; return 1
