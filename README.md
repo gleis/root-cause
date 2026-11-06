@@ -68,7 +68,7 @@ Any locally-pulled model works. Set `OLLAMA_MODEL_CLASSIFICATION`, `OLLAMA_MODEL
 
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install --require-hashes -r requirements.lock
 DEMO_MODE=true python scripts/run_demo.py
 ```
 
@@ -149,7 +149,7 @@ cp .env.example .env
 #   GITLAB_TOKEN=<your PAT>, GITLAB_PROJECT_ID=<your project>,
 #   SLACK_BOT_TOKEN=<xoxb-...>, SLACK_SIGNING_SECRET=<...> (optional)
 cd backend
-pip install -r ../requirements.txt
+pip install --require-hashes -r ../requirements.lock
 uvicorn app.main:app --reload
 
 # 6. Trigger a failure scenario
