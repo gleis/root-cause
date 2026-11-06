@@ -7,12 +7,12 @@ end-to-end via FastAPI's TestClient.
 No real IdP is used -- for the OIDC tests we generate our own RSA keypair,
 sign a JWT with it, and monkeypatch app.auth._get_jwks to serve our own
 public key as the "JWKS", which exercises the exact same verification code
-path (`jose.jwt.decode` against a JWKS-shaped key) a real IdP would.
+path (`jwt.decode` against a JWKS-shaped key) a real IdP would.
 """
 import time
 
 import pytest
-from jose import jwt
+import jwt
 
 from app import models
 from app.auth import (
@@ -82,7 +82,7 @@ def rsa_keypair():
     ).decode()
 
     public_numbers = key.public_key().public_numbers()
-    from jose.utils import long_to_base64
+    from jwt.utils import to_base64url_uint as long_to_base64
     jwk = {
         "kty": "RSA",
         "kid": "test-kid",
@@ -260,3 +260,52 @@ def test_admin_only_endpoint_allows_admin(client, db_session):
     plaintext, _ = _make_api_key(db_session, role="admin", plaintext="rc_adminkeyabcdef0001")
     resp = client.get("/api/v1/audit-log", headers={"Authorization": f"Bearer {plaintext}"})
     assert resp.status_code == 200
+
+
+@pytest.mark.parametrize("algorithm", ["HS256", "none"])
+def test_non_rs256_token_rejected(monkeypatch, rsa_keypair, algorithm):
+    _, jwks = rsa_keypair
+    settings = _configure_oidc_settings(monkeypatch, jwks)
+    token = jwt.encode({"sub": "attacker", "iss": settings.oidc_issuer_url,
+                        "aud": settings.oidc_audience, "roles": ["admin"]},
+                       "attacker-controlled-secret" if algorithm == "HS256" else None,
+                       algorithm=algorithm, headers={"kid": "test-kid"})
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as exc:
+        verify_oidc_token(token)
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("field,value", [("iss", "https://wrong.example"), ("nbf", 9999999999)])
+def test_oidc_claim_validation(monkeypatch, rsa_keypair, field, value):
+    private_pem, jwks = rsa_keypair
+    settings = _configure_oidc_settings(monkeypatch, jwks)
+    claims = {"sub": "user", "iss": settings.oidc_issuer_url, "aud": settings.oidc_audience,
+              "roles": ["engineer"], "exp": int(time.time()) + 3600, field: value}
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as exc:
+        verify_oidc_token(_issue_token(private_pem, claims))
+    assert exc.value.status_code == 401
+
+
+def test_rs256_key_without_optional_metadata(monkeypatch, rsa_keypair):
+    private_pem, jwks = rsa_keypair
+    del jwks["keys"][0]["alg"]
+    del jwks["keys"][0]["use"]
+    settings = _configure_oidc_settings(monkeypatch, jwks)
+    token = _issue_token(private_pem, {"sub": "user", "iss": settings.oidc_issuer_url,
+        "aud": settings.oidc_audience, "roles": ["engineer"], "exp": int(time.time()) + 3600})
+    assert verify_oidc_token(token).role == "engineer"
+
+
+@pytest.mark.parametrize("metadata", [{"alg": "HS256"}, {"use": "enc"}, {"key_ops": ["encrypt"]}])
+def test_incompatible_jwk_metadata_rejected(monkeypatch, rsa_keypair, metadata):
+    private_pem, jwks = rsa_keypair
+    jwks["keys"][0].update(metadata)
+    settings = _configure_oidc_settings(monkeypatch, jwks)
+    token = _issue_token(private_pem, {"sub": "user", "iss": settings.oidc_issuer_url,
+        "aud": settings.oidc_audience, "roles": ["admin"], "exp": int(time.time()) + 3600})
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as exc:
+        verify_oidc_token(token)
+    assert exc.value.status_code == 401

@@ -247,3 +247,7 @@ The test suite covers the confidence-scoring math, the command allowlist/denylis
 - A health check endpoint suitable for Kubernetes liveness/readiness probes that verifies downstream dependencies (database, Redis, Vault).
 
 Before relying on this in a real environment, validate the pieces that depend on infrastructure not available during development: authenticate against your actual identity provider, exercise Vault's AppRole login and dynamic credentials against a real Vault server, run `helm lint`/`helm template`/a real install against your target cluster, and load-test the Celery/Redis path under concurrent investigations.
+
+## Maintenance (2026-11-06)
+
+Use Python 3.12 and `pip install --require-hashes -r requirements.lock`. OIDC verification uses PyJWT with cryptography, an explicit RS256 allowlist, issuer/audience validation, and signing-key metadata checks. Run `cd backend && pytest` before deploying.

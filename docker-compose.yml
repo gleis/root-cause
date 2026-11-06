@@ -29,7 +29,8 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -79,7 +80,8 @@ services:
   # -------------------------------------------------------------------------
   worker:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql+psycopg2://rootcause:rootcause@postgres:5432/rootcause
       REDIS_URL: redis://redis:6379/0
@@ -116,7 +118,8 @@ services:
   # -------------------------------------------------------------------------
   migrate:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql+psycopg2://rootcause:rootcause@postgres:5432/rootcause
       DEMO_MODE: "false"

@@ -30,7 +30,8 @@ from typing import Optional
 
 import httpx
 from fastapi import Depends, HTTPException, Request, status
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from .config import get_settings
@@ -117,6 +118,8 @@ def verify_oidc_token(token: str) -> Actor:
     try:
         jwks = _get_jwks(settings)
         unverified_header = jwt.get_unverified_header(token)
+        if unverified_header.get("alg") != "RS256":
+            raise HTTPException(status_code=401, detail="Unsupported token algorithm")
         key = None
         for k in jwks.get("keys", []):
             if k.get("kid") == unverified_header.get("kid"):
@@ -134,16 +137,21 @@ def verify_oidc_token(token: str) -> Actor:
         if key is None:
             raise HTTPException(status_code=401, detail="No matching JWKS key for token")
 
+        if (key.get("kty") != "RSA" or key.get("alg", "RS256") != "RS256"
+                or key.get("use", "sig") != "sig"
+                or "verify" not in key.get("key_ops", ["verify"])):
+            raise HTTPException(status_code=401, detail="Invalid signing key")
+        public_key = jwt.PyJWK.from_dict(key, algorithm="RS256").key
         claims = jwt.decode(
             token,
-            key,
-            algorithms=[key.get("alg", "RS256")],
+            public_key,
+            algorithms=["RS256"],
             audience=settings.oidc_audience,
             issuer=settings.oidc_issuer_url,
         )
     except HTTPException:
         raise
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         logger.info("OIDC token rejected: %s", exc)
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
     except Exception as exc:  # noqa: BLE001 -- any failure here must fail closed

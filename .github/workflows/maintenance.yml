@@ -1,0 +1,30 @@
+name: Maintenance
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "23 9 * * 1"
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --require-hashes -r requirements.lock
+      - run: cd backend && pytest
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.lock --disable-pip --no-deps
+      - run: pip-audit -r infra/k3d/sample-app/requirements.lock --disable-pip --no-deps
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4.3.1
+        with:
+          version: v4.3.1
+      - run: helm lint deploy/helm/rootcause
+      - run: helm template rootcause deploy/helm/rootcause
