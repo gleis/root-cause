@@ -22,7 +22,8 @@ spec:
       restartPolicy: Never
       containers:
         - name: exhauster
-          image: postgres:16-alpine
+          image: rootcause-postgres:16-secure
+          imagePullPolicy: Never
           env:
             - name: PGPASSWORD
               value: demo

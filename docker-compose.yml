@@ -2,7 +2,10 @@ version: "3.9"
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: rootcause-postgres:16-secure
+    build:
+      context: .
+      dockerfile: deploy/postgres/Dockerfile
     environment:
       POSTGRES_USER: rootcause
       POSTGRES_PASSWORD: rootcause

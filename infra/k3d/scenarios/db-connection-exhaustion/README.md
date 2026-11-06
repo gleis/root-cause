@@ -1,3 +1,12 @@
+Build and import the patched PostgreSQL image before starting this scenario:
+
+```sh
+docker build -f deploy/postgres/Dockerfile -t rootcause-postgres:16-secure .
+k3d image import rootcause-postgres:16-secure -c "${CLUSTER_NAME:-rootcause}"
+```
+
+The image preserves PostgreSQL 16 initialization and storage layout, replacing only gosu with a build using patched Go dependencies. CI scans the final image and checks fresh-volume initialization and persisted data across restart. Run `deploy/postgres/smoke.sh` for the same disposable local check.
+
 # Scenario: DB connection pool exhaustion
 
 Deploys a tiny Postgres (`max_connections=15`) and opens many idle
