@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scenario-images.env"
+source "$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scenario-images.env"
 NAMESPACE="${NAMESPACE:-demo}"
 BAD_HOST="postgres-demo.nonexistent-namespace.svc.cluster.local"
 

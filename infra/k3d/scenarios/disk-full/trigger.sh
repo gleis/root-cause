@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scenario-images.env"
+source "$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scenario-images.env"
 NAMESPACE="${NAMESPACE:-demo}"
 
 echo "==> Launching disk-fill Job (repeatedly calls /fill-disk against customer-api's 100Mi scratch volume) ..."
