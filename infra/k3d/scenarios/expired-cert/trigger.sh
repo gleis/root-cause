@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scenario-images.env"
 NAMESPACE="${NAMESPACE:-demo}"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "${TMPDIR}"' EXIT
@@ -25,7 +26,7 @@ kubectl -n "${NAMESPACE}" create secret tls customer-api-tls-cert \
   --cert="${TMPDIR}/tls.crt" --key="${TMPDIR}/tls.key"
 
 echo "==> Deploying nginx TLS front-end (customer-api-tls) ..."
-cat <<'EOF' | kubectl -n demo apply -f -
+cat <<EOF | kubectl -n demo apply -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -55,7 +56,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: nginx:1.27-alpine
+          image: ${DEMO_NGINX_IMAGE}
           ports: [{containerPort: 443}]
           volumeMounts:
             - {name: tls, mountPath: /etc/tls, readOnly: true}
@@ -79,7 +80,7 @@ kubectl -n "${NAMESPACE}" rollout status deployment/customer-api-tls --timeout=9
 
 echo "==> Launching TLS-handshake-failure log generator Job ..."
 kubectl -n "${NAMESPACE}" delete job tls-handshake-fail --ignore-not-found >/dev/null 2>&1 || true
-cat <<'EOF' | kubectl -n demo apply -f -
+cat <<EOF | kubectl -n demo apply -f -
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -91,8 +92,8 @@ spec:
       restartPolicy: Never
       containers:
         - name: tls-check
-          image: curlimages/curl:8.8.0
-          command: ["/bin/sh", "-c", "for i in $(seq 1 20); do curl -v https://customer-api-tls 2>&1 | grep -i -E 'expire|SSL certificate problem' || true; sleep 5; done"]
+          image: ${DEMO_CURL_IMAGE}
+          command: ["/bin/sh", "-c", "for i in \$(seq 1 20); do curl -v https://customer-api-tls 2>&1 | grep -i -E 'expire|SSL certificate problem' || true; sleep 5; done"]
 EOF
 
 echo

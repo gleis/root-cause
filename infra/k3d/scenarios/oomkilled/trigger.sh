@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scenario-images.env"
 NAMESPACE="${NAMESPACE:-demo}"
 DEPLOY="customer-api"
 LOAD_PID_FILE="/tmp/rootcause-scenario-oomkilled-load.pid"
@@ -16,7 +17,7 @@ kubectl -n "${NAMESPACE}" rollout status deployment/"${DEPLOY}" --timeout=120s |
 
 echo "==> Starting background load generator against customer-api/work ..."
 (
-  kubectl -n "${NAMESPACE}" run oomkilled-load-gen --rm -i --restart=Never --image=busybox:1.36 -- \
+  kubectl -n "${NAMESPACE}" run oomkilled-load-gen --rm -i --restart=Never --image="${DEMO_SHELL_IMAGE}" -- \
     /bin/sh -c 'i=0; while [ $i -lt 100000 ]; do wget -q -O /dev/null http://customer-api/work || true; i=$((i+1)); done' \
     >/tmp/rootcause-scenario-oomkilled-load.log 2>&1 &
   echo $! > "${LOAD_PID_FILE}"

@@ -1,0 +1,68 @@
+name: Demo helper images
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, maintenance/demo-helper-images]
+    paths: ['infra/k3d/scenario-images.env', 'infra/k3d/scenarios/**', '.github/workflows/demo-helper-images.yml']
+permissions:
+  contents: read
+jobs:
+  helpers:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check HTTP, DNS, and the intended expired certificate failure
+        run: |
+          source infra/k3d/scenario-images.env
+          stage=$(mktemp -d)
+          trap 'docker rm -f helper-nginx >/dev/null 2>&1 || true; docker network rm helper-network >/dev/null 2>&1 || true; rm -rf "$stage"' EXIT
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -keyout "$stage/ca.key" -out "$stage/ca.crt" -subj /CN=Helper-check-CA
+          openssl req -new -newkey rsa:2048 -nodes -keyout "$stage/server.key" -out "$stage/server.req" -subj /CN=helper-nginx
+          printf 'subjectAltName=DNS:helper-nginx\n' > "$stage/san.cnf"
+          openssl x509 -req -CA "$stage/ca.crt" -CAkey "$stage/ca.key" -CAcreateserial -in "$stage/server.req" -days 1 -extfile "$stage/san.cnf" -out "$stage/valid.crt"
+          touch "$stage/index"
+          printf '01\n' > "$stage/serial"
+          cat > "$stage/ca.cnf" <<CONFIG
+          [ ca ]
+          default_ca = demo
+          [ demo ]
+          database = $stage/index
+          new_certs_dir = $stage
+          serial = $stage/serial
+          private_key = $stage/ca.key
+          certificate = $stage/ca.crt
+          default_md = sha256
+          policy = demo_policy
+          x509_extensions = demo_server
+          [ demo_policy ]
+          commonName = supplied
+          [ demo_server ]
+          subjectAltName = DNS:helper-nginx
+          CONFIG
+          openssl ca -config "$stage/ca.cnf" -batch -notext -in "$stage/server.req" -out "$stage/expired.crt" -startdate 20200101000000Z -enddate 20200102000000Z
+          mkdir "$stage/nginx"
+          cp "$stage/server.key" "$stage/valid.crt" "$stage/expired.crt" "$stage/nginx/"
+          cat > "$stage/nginx/default.conf" <<'CONFIG'
+          server { listen 80; location / { return 200 'demo-http'; } }
+          server { listen 443 ssl; ssl_certificate /etc/nginx/conf.d/valid.crt; ssl_certificate_key /etc/nginx/conf.d/server.key; location / { return 200 'demo-tls'; } }
+          server { listen 444 ssl; ssl_certificate /etc/nginx/conf.d/expired.crt; ssl_certificate_key /etc/nginx/conf.d/server.key; location / { return 200 'expired'; } }
+          CONFIG
+          docker network create helper-network
+          docker run -d --name helper-nginx --network helper-network -v "$stage/nginx:/etc/nginx/conf.d:ro" "$DEMO_NGINX_IMAGE"
+          for i in $(seq 1 10); do
+            if docker run --rm --network helper-network "$DEMO_CURL_IMAGE" curl -fsS http://helper-nginx/; then break; fi
+            sleep 1
+          done
+          docker run --rm --network helper-network "$DEMO_SHELL_IMAGE" /bin/sh -ec 'nslookup helper-nginx; date -Iseconds; test "$(wget -q -T 5 -O- http://helper-nginx/)" = demo-http'
+          docker run --rm --network helper-network --entrypoint /bin/sh "$DEMO_CURL_IMAGE" -ec 'for i in $(seq 1 2); do test "$(curl -fsS -X POST http://helper-nginx/)" = demo-http; done'
+          test "$(docker run --rm --network helper-network -v "$stage/ca.crt:/check-ca.crt:ro" "$DEMO_CURL_IMAGE" curl -fsS --cacert /check-ca.crt https://helper-nginx/)" = demo-tls
+          if docker run --rm --network helper-network -v "$stage/ca.crt:/check-ca.crt:ro" "$DEMO_CURL_IMAGE" curl -fsS --cacert /check-ca.crt https://helper-nginx:444/ > "$stage/expired.log" 2>&1; then
+            echo 'Expired certificate was unexpectedly accepted' >&2
+            exit 1
+          fi
+          grep -qi 'certificate has expired' "$stage/expired.log"

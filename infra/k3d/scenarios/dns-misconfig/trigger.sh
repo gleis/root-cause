@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scenario-images.env"
 NAMESPACE="${NAMESPACE:-demo}"
 BAD_HOST="postgres-demo.nonexistent-namespace.svc.cluster.local"
 
@@ -21,7 +22,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: dns-fail
-          image: busybox:1.36
+          image: ${DEMO_SHELL_IMAGE}
           command:
             - /bin/sh
             - -c

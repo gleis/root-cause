@@ -174,6 +174,12 @@ infra/k3d/scenarios/oomkilled/resolve.sh
 infra/k3d/teardown.sh
 ```
 
+The optional scenario jobs use digest-pinned helper images listed in
+`infra/k3d/scenario-images.env`. The helper workflow exercises HTTP, DNS and
+both trusted and expired TLS on AMD64 and ARM64. The separate Kubernetes
+system and observability chart images are outside the application image scans.
+
+
 ### Other failure scenarios
 
 Each of `infra/k3d/scenarios/{oomkilled, broken-deploy, db-connection-exhaustion, dns-misconfig, expired-cert, disk-full, disabled-cache, high-latency}/` has its own `README.md`, `trigger.sh`, and `resolve.sh`, following the same pattern.
