@@ -58,11 +58,12 @@ jobs:
             if docker run --rm --network helper-network "$DEMO_CURL_IMAGE" curl -fsS http://helper-nginx/; then break; fi
             sleep 1
           done
-          docker run --rm --network helper-network "$DEMO_SHELL_IMAGE" /bin/sh -ec 'nslookup helper-nginx; date -Iseconds; test "$(wget -q -T 5 -O- http://helper-nginx/)" = demo-http'
+          docker run --rm --network helper-network --dns-search=. "$DEMO_SHELL_IMAGE" /bin/sh -ec 'nslookup -type=A helper-nginx. 127.0.0.11; date -Iseconds; test "$(wget -q -T 5 -O- http://helper-nginx/)" = demo-http'
           docker run --rm --network helper-network --entrypoint /bin/sh "$DEMO_CURL_IMAGE" -ec 'for i in $(seq 1 2); do test "$(curl -fsS -X POST http://helper-nginx/)" = demo-http; done'
           test "$(docker run --rm --network helper-network -v "$stage/ca.crt:/check-ca.crt:ro" "$DEMO_CURL_IMAGE" curl -fsS --cacert /check-ca.crt https://helper-nginx/)" = demo-tls
           if docker run --rm --network helper-network -v "$stage/ca.crt:/check-ca.crt:ro" "$DEMO_CURL_IMAGE" curl -fsS --cacert /check-ca.crt https://helper-nginx:444/ > "$stage/expired.log" 2>&1; then
             echo 'Expired certificate was unexpectedly accepted' >&2
             exit 1
           fi
+          cat "$stage/expired.log"
           grep -qi 'certificate has expired' "$stage/expired.log"
