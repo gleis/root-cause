@@ -8,7 +8,7 @@ against it fail with a certificate-expiry error -- mirroring a real
 
 ## What `trigger.sh` does
 1. Generates a self-signed cert/key with `openssl req -x509` backdated so
-   `notAfter` is already in the past (`-enddate` set to yesterday).
+   `notAfter` is already in the past (`-not_after` set to yesterday).
 2. Creates a `tls` Secret from it and an nginx Deployment+Service
    (`customer-api-tls`) that terminates TLS using that Secret and proxies
    to `customer-api:80`.
@@ -18,11 +18,12 @@ against it fail with a certificate-expiry error -- mirroring a real
 ## What to watch
 ```bash
 kubectl -n demo logs job/tls-handshake-fail
-# or manually:
-kubectl -n demo run tls-check --rm -it --image=curlimages/curl --restart=Never -- \
+# or manually, from the repository root:
+source infra/k3d/scenario-images.env
+kubectl -n demo run tls-check --rm -it --image="${DEMO_CURL_IMAGE}" --restart=Never -- \
   curl -v https://customer-api-tls
 ```
-Expect `SSL certificate problem: certificate has expired`.
+Expect a certificate verification failure. When the self-signed certificate is explicitly trusted, the failure identifies the expiration.
 
 ## Recovery
 `resolve.sh` deletes the Job, the nginx Deployment/Service, and the TLS
