@@ -1,0 +1,65 @@
+name: Runtime image security
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, maintenance/runtime-image-security]
+permissions:
+  contents: read
+jobs:
+  images:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          docker build -f backend/Dockerfile -t rootcause-api:review .
+          docker build -t rootcause-sample:review infra/k3d/sample-app
+          docker run --rm rootcause-api:review python -c 'import ssl,psycopg2,cryptography,app.main,app.celery_app; assert ssl.create_default_context().get_ca_certs()'
+          docker run --rm rootcause-api:review pip check
+      - name: Verify migrations, API and worker commands
+        run: |
+          docker compose up --build --wait postgres redis
+          docker compose run --build --rm migrate
+          docker compose up --build -d backend worker
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8000/openapi.json -o /tmp/openapi.json && break; sleep 1; done
+          python3 -c 'import json; assert "/api/v1/incidents" in json.load(open("/tmp/openapi.json"))["paths"]'
+          docker compose exec -T worker celery -A app.celery_app inspect ping --timeout 15
+      - name: Verify sample HTTP and scratch operations
+        run: |
+          docker run -d --name sample-check --tmpfs /scratch:size=16m -p 127.0.0.1:18080:8080 rootcause-sample:review
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:18080/healthz && break; sleep 1; done
+          curl -fsS http://127.0.0.1:18080/readyz
+          curl -fsS http://127.0.0.1:18080/metrics | grep -q python_info
+          docker exec sample-check python -c 'from app import app; c=app.test_client(); filled=c.post("/fill-disk"); assert filled.status_code==200 and filled.json["written_mb"]>0; reset=c.post("/reset-disk"); assert reset.status_code==200 and reset.json["removed"]>0'
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.76.2
+          image-ref: rootcause-api:review
+          scanners: vuln
+          format: json
+          output: api-image.json
+          exit-code: '1'
+          ignore-unfixed: false
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.76.2
+          image-ref: rootcause-sample:review
+          scanners: vuln
+          format: json
+          output: sample-image.json
+          exit-code: '1'
+          ignore-unfixed: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-images-${{ runner.arch }}
+          path: '*-image.json'
+      - if: always()
+        run: |
+          docker compose logs --tail 60
+          docker compose down --volumes
+          docker rm -f sample-check || true
