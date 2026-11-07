@@ -19,7 +19,7 @@ jobs:
           docker build -f backend/Dockerfile -t rootcause-api:review .
           docker build -t rootcause-sample:review infra/k3d/sample-app
           docker run --rm rootcause-api:review python -c 'import ssl,psycopg2,cryptography,app.main,app.celery_app; assert ssl.create_default_context().get_ca_certs()'
-          docker run --rm rootcause-api:review pip check
+          docker run --rm rootcause-api:review python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
       - name: Verify migrations, API and worker commands
         run: |
           docker compose up --build --wait postgres redis
