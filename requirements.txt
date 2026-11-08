@@ -36,7 +36,7 @@ alembic>=1.13.2
 
 # Misc
 python-dotenv>=1.0.1
-python-multipart>=0.0.9
+python-multipart>=0.0.33
 
 # Tests
 pytest>=8.2.2
