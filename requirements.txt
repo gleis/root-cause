@@ -16,7 +16,7 @@ requests>=2.32.3
 
 # Integrations
 kubernetes>=29.0.0
-python-gitlab>=4.4.0
+python-gitlab>=8.6.0
 slack_sdk>=3.27.2
 
 # Background task queue (Celery worker in production; DEMO_MODE's
